@@ -41,7 +41,7 @@ done <<< "$VIDEO_FILES"
 
 # Execute ffmpeg concatenation
 echo "Concatenating videos..."
-ffmpeg -f concat -i "$TEMP_LIST" -c copy "$OUTPUT_FILE"
+ffmpeg -f concat -safe 0 -i "$TEMP_LIST" -c copy "$OUTPUT_FILE"
 
 # Check if ffmpeg succeeded
 if [ $? -eq 0 ]; then
