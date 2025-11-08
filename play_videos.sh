@@ -113,7 +113,7 @@ echo "Infinite loop: enabled (always)"
 echo ""
 
 # Build and execute mpv command
-MPV_ARGS=("--loop-playlist=inf" "--speed=$SPEED")
+MPV_ARGS=("--loop=inf" "--speed=$SPEED")
 
 # Add shuffle if enabled
 if [ "$SHUFFLE" = true ]; then
