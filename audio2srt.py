@@ -1,6 +1,7 @@
 from datetime import timedelta
 import os
 import whisper
+import sys
 
 def transcribe_audio(path, language):
     model = whisper.load_model("large")
@@ -21,4 +22,4 @@ def transcribe_audio(path, language):
 
     return srtFilename
 
-transcribe_audio("output2.wav", "zh")
+transcribe_audio(sys.argv[1], sys.argv[2])
