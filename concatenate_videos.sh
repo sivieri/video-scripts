@@ -34,14 +34,14 @@ echo "Found $FILE_COUNT video file(s) to concatenate"
 # Create the list file for ffmpeg concat demuxer
 echo "Creating temporary list file..."
 while IFS= read -r file; do
-    # Get absolute path to handle relative paths correctly
-    abs_path=$(cd "$(dirname "$file")" && pwd)/$(basename "$file")
-    echo "file '$abs_path'" >> "$TEMP_LIST"
+    # Use relative path (strip ./ prefix if present)
+    rel_path="${file#./}"
+    echo "file '$rel_path'" >> "$TEMP_LIST"
 done <<< "$VIDEO_FILES"
 
 # Execute ffmpeg concatenation
 echo "Concatenating videos..."
-ffmpeg -f concat -safe 0 -i "$TEMP_LIST" -c copy "$OUTPUT_FILE"
+ffmpeg -f concat -i "$TEMP_LIST" -c copy "$OUTPUT_FILE"
 
 # Check if ffmpeg succeeded
 if [ $? -eq 0 ]; then
