@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script to play videos with mpv
-# Default: current directory, 100% speed, shuffled, infinite loop
+# Default: current directory (recursive), 100% speed, 80% volume, shuffled, infinite loop
 # Usage: ./play_videos.sh [OPTIONS]
 
 set -e  # Exit on error
@@ -18,18 +18,18 @@ usage() {
 Usage: $0 [OPTIONS]
 
 Options:
-    -d, --dir DIR      Specify directory (default: current directory)
+    -d, --dir DIR      Specify directory (default: current directory, recursive)
     -e, --ext EXT      Specify file extension (e.g., mkv, mp4) without the dot
     -s, --slow         Set playback speed to 85% (default: 100%)
     -n, --no-shuffle   Disable shuffle (default: enabled)
     -h, --help         Show this help message
 
 Examples:
-    $0                                    # Play all videos in current dir, shuffled, 100% speed
-    $0 -d /path/to/videos                 # Play all videos in specified directory
-    $0 -e mkv                             # Play only .mkv files in current directory
+    $0                                    # Play all videos in current dir (recursive), shuffled, 100% speed
+    $0 -d /path/to/videos                 # Play all videos in specified directory (recursive)
+    $0 -e mkv                             # Play only .mkv files in current directory (recursive)
     $0 -s                                 # Play at 85% speed
-    $0 -d /path/to/videos -e mp4 -n  # Play .mp4 files in directory, no shuffle
+    $0 -d /path/to/videos -e mp4 -n  # Play .mp4 files in directory (recursive), no shuffle
 EOF
     exit 0
 }
@@ -74,11 +74,11 @@ fi
 if [ -n "$EXTENSION" ]; then
     # Remove leading dot if present
     EXTENSION="${EXTENSION#.}"
-    # Find files with specific extension
-    FILES=$(find "$DIRECTORY" -maxdepth 1 -type f -iname "*.$EXTENSION" 2>/dev/null | sort)
+    # Find files with specific extension (recursive)
+    FILES=$(find "$DIRECTORY" -type f -iname "*.$EXTENSION" 2>/dev/null | sort)
 else
-    # Common video extensions
-    FILES=$(find "$DIRECTORY" -maxdepth 1 -type f \( \
+    # Common video extensions (recursive)
+    FILES=$(find "$DIRECTORY" -type f \( \
         -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" \
         -o -iname "*.webm" -o -iname "*.flv" -o -iname "*.wmv" -o -iname "*.m4v" \
         -o -iname "*.mpg" -o -iname "*.mpeg" -o -iname "*.3gp" -o -iname "*.ts" \
@@ -108,12 +108,13 @@ echo "Directory: $DIRECTORY"
 [ -n "$EXTENSION" ] && echo "Extension: .$EXTENSION" || echo "Extension: all video formats"
 echo "Files found: $FILE_COUNT"
 echo "Speed: $((SPEED * 100))%"
+echo "Volume: 80% (always)"
 echo "Shuffle: $([ "$SHUFFLE" = true ] && echo "enabled" || echo "disabled")"
 echo "Infinite loop: enabled (always)"
 echo ""
 
 # Build and execute mpv command
-MPV_ARGS=("--loop=inf" "--speed=$SPEED")
+MPV_ARGS=("--loop=inf" "--volume=80" "--speed=$SPEED")
 
 # Add shuffle if enabled
 if [ "$SHUFFLE" = true ]; then
