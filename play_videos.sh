@@ -107,7 +107,7 @@ echo "Playing videos with mpv..."
 echo "Directory: $DIRECTORY"
 [ -n "$EXTENSION" ] && echo "Extension: .$EXTENSION" || echo "Extension: all video formats"
 echo "Files found: $FILE_COUNT"
-echo "Speed: $((SPEED * 100))%"
+echo "Speed: $(awk "BEGIN {print $SPEED * 100}")%"
 echo "Volume: 80% (always)"
 echo "Shuffle: $([ "$SHUFFLE" = true ] && echo "enabled" || echo "disabled")"
 echo "Infinite loop: enabled (always)"
@@ -126,4 +126,3 @@ MPV_ARGS+=("${FILE_ARRAY[@]}")
 
 # Execute mpv
 exec mpv.exe "${MPV_ARGS[@]}"
-
