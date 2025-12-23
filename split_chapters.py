@@ -14,7 +14,7 @@ def parseChapters(filename):
     # when it does not get one so we need to capture stderr, 
     # not stdout.
     output = sp.check_output(command, stderr=sp.STDOUT, universal_newlines=True)
-  except CalledProcessError, e:
+  except CalledProcessError as e:
     output = e.output 
    
   for line in iter(output.splitlines()):
@@ -34,16 +34,16 @@ def getChapters():
   chapters = parseChapters(options.infile)
   fbase, fext = os.path.splitext(options.infile)
   for chap in chapters:
-    print "start:" +  chap['start']
+    print("start:" +  chap['start'])
     chap['outfile'] = fbase + "-ch-"+ chap['name'] + fext
     chap['origfile'] = options.infile
-    print chap['outfile']
+    print(chap['outfile'])
   return chapters
 
 def convertChapters(chapters):
   for chap in chapters:
-    print "start:" +  chap['start']
-    print chap
+    print("start:" +  chap['start'])
+    print(chap)
     command = [
         "ffmpeg", '-i', chap['origfile'],
         '-vcodec', 'copy',
@@ -56,7 +56,7 @@ def convertChapters(chapters):
       # ffmpeg requires an output file and so it errors 
       # when it does not get one
       output = sp.check_output(command, stderr=sp.STDOUT, universal_newlines=True)
-    except CalledProcessError, e:
+    except CalledProcessError as e:
       output = e.output
       raise RuntimeError("command '{}' return with error (code {}): {}".format(e.cmd, e.returncode, e.output))
 
