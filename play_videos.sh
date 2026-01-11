@@ -12,7 +12,6 @@ EXTENSION=""
 SPEED=1.0
 SHUFFLE=true
 EXCLUDE_DIRS=()
-LIMIT=""
 
 # Function to display usage
 usage() {
@@ -25,7 +24,6 @@ Options:
     -e, --ext EXT      Specify file extension (e.g., mkv, mp4) without the dot
     -s, --slow         Set playback speed to 85% (default: 100%)
     -n, --no-shuffle   Disable shuffle (default: enabled)
-    -l, --limit N      Limit the number of files to play (randomly selected)
     -h, --help         Show this help message
 
 Examples:
@@ -36,7 +34,6 @@ Examples:
     $0 -e mkv                             # Play only .mkv files in current directory (recursive)
     $0 -s                                 # Play at 85% speed
     $0 -d /path/to/videos -e mp4 -n  # Play .mp4 files in directory (recursive), no shuffle
-    $0 -l 100                         # Play 100 randomly selected videos from current directory
 EOF
     exit 0
 }
@@ -63,10 +60,6 @@ while [[ $# -gt 0 ]]; do
         -n|--no-shuffle)
             SHUFFLE=false
             shift
-            ;;
-        -l|--limit)
-            LIMIT="$2"
-            shift 2
             ;;
         -h|--help)
             usage
@@ -160,36 +153,12 @@ while IFS= read -r line; do
     [ -n "$line" ] && FILE_ARRAY+=("$line")
 done <<< "$FILES"
 
-# Apply limit if specified (shuffle first to get random selection)
-if [ -n "$LIMIT" ]; then
-    # Validate limit is a positive integer
-    if ! [[ "$LIMIT" =~ ^[1-9][0-9]*$ ]]; then
-        echo "Error: Limit must be a positive integer"
-        exit 1
-    fi
-    
-    # Shuffle the array before applying limit
-    # Convert to newline-separated, shuffle, then convert back
-    SHUFFLED_FILES=$(printf '%s\n' "${FILE_ARRAY[@]}" | shuf)
-    
-    # Take only the first LIMIT files
-    FILE_ARRAY=()
-    COUNT=0
-    while IFS= read -r line && [ "$COUNT" -lt "$LIMIT" ]; do
-        [ -n "$line" ] && FILE_ARRAY+=("$line") && ((COUNT++))
-    done <<< "$SHUFFLED_FILES"
-    
-    # Update file count for display
-    FILE_COUNT=${#FILE_ARRAY[@]}
-fi
-
 # Display info
 echo "Playing videos with mpv..."
 echo "Directory: $DIRECTORY"
 [ ${#EXCLUDE_DIRS[@]} -gt 0 ] && echo "Excluded: ${EXCLUDE_DIRS[*]}"
 [ -n "$EXTENSION" ] && echo "Extension: .$EXTENSION" || echo "Extension: all video formats"
 echo "Files found: $FILE_COUNT"
-[ -n "$LIMIT" ] && echo "Limit applied: $LIMIT files (randomly selected)"
 echo "Speed: $(awk "BEGIN {print $SPEED * 100}")%"
 echo "Volume: 80% (always)"
 echo "Shuffle: $([ "$SHUFFLE" = true ] && echo "enabled" || echo "disabled")"
