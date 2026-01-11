@@ -112,23 +112,19 @@ if [ -n "$EXTENSION" ]; then
         for pattern in "${EXCLUDE_PATTERNS[@]}"; do
             FIND_ARGS+=(-path "$pattern" -prune -o)
         done
-        FIND_ARGS+=(-type f -iname "*.$EXTENSION" -print)
+        FIND_ARGS+=(-type f -iname "*.$EXTENSION" -print0)
         FIND_ARGS+=(")")
-        # Use newline-delimited processing (Git Bash compatible)
-        # Store in variable first, then read - this worked in the old version
-        FILES=$(find "${FIND_ARGS[@]}" 2>/dev/null | sort)
+        # Use null-delimited processing to handle special characters in filenames
         FILE_ARRAY=()
-        while IFS= read -r line; do
-            [ -n "$line" ] && FILE_ARRAY+=("$line")
-        done <<< "$FILES"
+        while IFS= read -r -d '' file; do
+            [ -n "$file" ] && FILE_ARRAY+=("$file")
+        done < <(find "${FIND_ARGS[@]}" 2>/dev/null | sort -z)
     else
-        # Use newline-delimited processing (Git Bash compatible)
-        # Store in variable first, then read - this worked in the old version
-        FILES=$(find "$SEARCH_DIR" -type f -iname "*.$EXTENSION" 2>/dev/null | sort)
+        # Use null-delimited processing to handle special characters in filenames
         FILE_ARRAY=()
-        while IFS= read -r line; do
-            [ -n "$line" ] && FILE_ARRAY+=("$line")
-        done <<< "$FILES"
+        while IFS= read -r -d '' file; do
+            [ -n "$file" ] && FILE_ARRAY+=("$file")
+        done < <(find "$SEARCH_DIR" -type f -iname "*.$EXTENSION" -print0 2>/dev/null | sort -z)
     fi
 else
     # Common video extensions (recursive), excluding specified directories
@@ -143,28 +139,24 @@ else
             -o -iname "*.webm" -o -iname "*.flv" -o -iname "*.wmv" -o -iname "*.m4v" \
             -o -iname "*.mpg" -o -iname "*.mpeg" -o -iname "*.3gp" -o -iname "*.ts" \
             -o -iname "*.m2ts" \
-        \) -print)
+        \) -print0)
         FIND_ARGS+=(")")
-        # Use newline-delimited processing (Git Bash compatible)
-        # Store in variable first, then read - this worked in the old version
-        FILES=$(find "${FIND_ARGS[@]}" 2>/dev/null | sort)
+        # Use null-delimited processing to handle special characters in filenames
         FILE_ARRAY=()
-        while IFS= read -r line; do
-            [ -n "$line" ] && FILE_ARRAY+=("$line")
-        done <<< "$FILES"
+        while IFS= read -r -d '' file; do
+            [ -n "$file" ] && FILE_ARRAY+=("$file")
+        done < <(find "${FIND_ARGS[@]}" 2>/dev/null | sort -z)
     else
-        # Use newline-delimited processing (Git Bash compatible)
-        # Store in variable first, then read - this worked in the old version
-        FILES=$(find "$SEARCH_DIR" -type f \( \
+        # Use null-delimited processing to handle special characters in filenames
+        FILE_ARRAY=()
+        while IFS= read -r -d '' file; do
+            [ -n "$file" ] && FILE_ARRAY+=("$file")
+        done < <(find "$SEARCH_DIR" -type f \( \
             -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" \
             -o -iname "*.webm" -o -iname "*.flv" -o -iname "*.wmv" -o -iname "*.m4v" \
             -o -iname "*.mpg" -o -iname "*.mpeg" -o -iname "*.3gp" -o -iname "*.ts" \
             -o -iname "*.m2ts" \
-        \) 2>/dev/null | sort)
-        FILE_ARRAY=()
-        while IFS= read -r line; do
-            [ -n "$line" ] && FILE_ARRAY+=("$line")
-        done <<< "$FILES"
+        \) -print0 2>/dev/null | sort -z)
     fi
 fi
 
@@ -187,12 +179,11 @@ if [ -n "$LIMIT" ]; then
     fi
     
     # Shuffle the array before applying limit
-    # Use newline-delimited processing (Git Bash compatible)
-    TEMP_FILES=$(printf '%s\n' "${FILE_ARRAY[@]}" | shuf)
+    # Use null-delimited processing to handle special characters
     TEMP_ARRAY=()
-    while IFS= read -r line; do
-        [ -n "$line" ] && TEMP_ARRAY+=("$line")
-    done <<< "$TEMP_FILES"
+    while IFS= read -r -d '' file; do
+        [ -n "$file" ] && TEMP_ARRAY+=("$file")
+    done < <(printf '%s\0' "${FILE_ARRAY[@]}" | shuf -z)
     
     # Take only the first LIMIT files
     FILE_ARRAY=()
@@ -224,17 +215,19 @@ echo "Infinite loop: enabled (always)"
 echo ""
 
 # Build and execute mpv command
-# Use simple array expansion - this worked in the old version
-MPV_ARGS=("mpv.exe" "--loop=inf" "--volume=80" "--speed=$SPEED")
+# Use set -- for better Git Bash on Windows compatibility with special characters
+set -- mpv.exe --loop=inf --volume=80 --speed="$SPEED"
 
 # Add shuffle if enabled
 if [ "$SHUFFLE" = true ]; then
-    MPV_ARGS+=("--shuffle")
+    set -- "$@" --shuffle
 fi
 
-# Add files - use array expansion like the old working code
-# Each element in FILE_ARRAY is added as a separate argument
-MPV_ARGS+=("${FILE_ARRAY[@]}")
+# Add files - properly handle filenames with special characters including single quotes
+# Using set -- ensures each filename is properly quoted as a separate argument
+for file in "${FILE_ARRAY[@]}"; do
+    set -- "$@" "$file"
+done
 
-# Execute mpv - array expansion should work correctly in Git Bash
-exec "${MPV_ARGS[@]}"
+# Execute mpv - positional parameters are properly handled by Git Bash
+exec "$@"
