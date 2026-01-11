@@ -112,19 +112,11 @@ if [ -n "$EXTENSION" ]; then
         for pattern in "${EXCLUDE_PATTERNS[@]}"; do
             FIND_ARGS+=(-path "$pattern" -prune -o)
         done
-        FIND_ARGS+=(-type f -iname "*.$EXTENSION" -print0)
+        FIND_ARGS+=(-type f -iname "*.$EXTENSION" -print)
         FIND_ARGS+=(")")
-        # Use null-delimited processing to handle special characters in filenames
-        FILE_ARRAY=()
-        while IFS= read -r -d '' file; do
-            [ -n "$file" ] && FILE_ARRAY+=("$file")
-        done < <(find "${FIND_ARGS[@]}" 2>/dev/null | sort -z)
+        FILES=$(find "${FIND_ARGS[@]}" 2>/dev/null | sort)
     else
-        # Use null-delimited processing to handle special characters in filenames
-        FILE_ARRAY=()
-        while IFS= read -r -d '' file; do
-            [ -n "$file" ] && FILE_ARRAY+=("$file")
-        done < <(find "$SEARCH_DIR" -type f -iname "*.$EXTENSION" -print0 2>/dev/null | sort -z)
+        FILES=$(find "$SEARCH_DIR" -type f -iname "*.$EXTENSION" 2>/dev/null | sort)
     fi
 else
     # Common video extensions (recursive), excluding specified directories
@@ -139,36 +131,34 @@ else
             -o -iname "*.webm" -o -iname "*.flv" -o -iname "*.wmv" -o -iname "*.m4v" \
             -o -iname "*.mpg" -o -iname "*.mpeg" -o -iname "*.3gp" -o -iname "*.ts" \
             -o -iname "*.m2ts" \
-        \) -print0)
+        \) -print)
         FIND_ARGS+=(")")
-        # Use null-delimited processing to handle special characters in filenames
-        FILE_ARRAY=()
-        while IFS= read -r -d '' file; do
-            [ -n "$file" ] && FILE_ARRAY+=("$file")
-        done < <(find "${FIND_ARGS[@]}" 2>/dev/null | sort -z)
+        FILES=$(find "${FIND_ARGS[@]}" 2>/dev/null | sort)
     else
-        # Use null-delimited processing to handle special characters in filenames
-        FILE_ARRAY=()
-        while IFS= read -r -d '' file; do
-            [ -n "$file" ] && FILE_ARRAY+=("$file")
-        done < <(find "$SEARCH_DIR" -type f \( \
+        FILES=$(find "$SEARCH_DIR" -type f \( \
             -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" \
             -o -iname "*.webm" -o -iname "*.flv" -o -iname "*.wmv" -o -iname "*.m4v" \
             -o -iname "*.mpg" -o -iname "*.mpeg" -o -iname "*.3gp" -o -iname "*.ts" \
             -o -iname "*.m2ts" \
-        \) -print0 2>/dev/null | sort -z)
+        \) 2>/dev/null | sort)
     fi
 fi
 
 # Check if any files were found
-if [ ${#FILE_ARRAY[@]} -eq 0 ]; then
+if [ -z "$FILES" ]; then
     echo "Error: No video files found"
     [ -n "$EXTENSION" ] && echo "  Directory: $DIRECTORY" && echo "  Extension: .$EXTENSION" || echo "  Directory: $DIRECTORY"
     exit 1
 fi
 
 # Count files
-FILE_COUNT=${#FILE_ARRAY[@]}
+FILE_COUNT=$(echo "$FILES" | wc -l | tr -d ' ')
+
+# Build array to handle filenames with spaces properly
+FILE_ARRAY=()
+while IFS= read -r line; do
+    [ -n "$line" ] && FILE_ARRAY+=("$line")
+done <<< "$FILES"
 
 # Apply limit if specified (shuffle first to get random selection)
 if [ -n "$LIMIT" ]; then
@@ -179,23 +169,15 @@ if [ -n "$LIMIT" ]; then
     fi
     
     # Shuffle the array before applying limit
-    # Use null-delimited processing to handle special characters
-    TEMP_ARRAY=()
-    while IFS= read -r -d '' file; do
-        [ -n "$file" ] && TEMP_ARRAY+=("$file")
-    done < <(printf '%s\0' "${FILE_ARRAY[@]}" | shuf -z)
+    # Convert to newline-separated, shuffle, then convert back
+    SHUFFLED_FILES=$(printf '%s\n' "${FILE_ARRAY[@]}" | shuf)
     
     # Take only the first LIMIT files
     FILE_ARRAY=()
     COUNT=0
-    for file in "${TEMP_ARRAY[@]}"; do
-        if [ "$COUNT" -lt "$LIMIT" ]; then
-            FILE_ARRAY+=("$file")
-            ((COUNT++))
-        else
-            break
-        fi
-    done
+    while IFS= read -r line && [ "$COUNT" -lt "$LIMIT" ]; do
+        [ -n "$line" ] && FILE_ARRAY+=("$line") && ((COUNT++))
+    done <<< "$SHUFFLED_FILES"
     
     # Update file count for display
     FILE_COUNT=${#FILE_ARRAY[@]}
