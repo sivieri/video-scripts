@@ -222,11 +222,8 @@ if [ "$SHUFFLE" = true ]; then
     MPV_ARGS+=("--shuffle")
 fi
 
-# Add files - properly handle filenames with special characters including single quotes
-# Using array expansion with proper quoting ensures each filename is passed as a single argument
-for file in "${FILE_ARRAY[@]}"; do
-    MPV_ARGS+=("$file")
-done
+# Add files
+MPV_ARGS+=("${FILE_ARRAY[@]}")
 
 # Execute mpv
 exec mpv.exe "${MPV_ARGS[@]}"
