@@ -215,19 +215,18 @@ echo "Infinite loop: enabled (always)"
 echo ""
 
 # Build and execute mpv command
-# Use set -- for better Git Bash on Windows compatibility with special characters
-set -- mpv.exe --loop=inf --volume=80 --speed="$SPEED"
+MPV_ARGS=("--loop=inf" "--volume=80" "--speed=$SPEED")
 
 # Add shuffle if enabled
 if [ "$SHUFFLE" = true ]; then
-    set -- "$@" --shuffle
+    MPV_ARGS+=("--shuffle")
 fi
 
 # Add files - properly handle filenames with special characters including single quotes
-# Using set -- ensures each filename is properly quoted as a separate argument
+# Using array expansion with proper quoting ensures each filename is passed as a single argument
 for file in "${FILE_ARRAY[@]}"; do
-    set -- "$@" "$file"
+    MPV_ARGS+=("$file")
 done
 
-# Execute mpv - positional parameters are properly handled by Git Bash
-exec "$@"
+# Execute mpv
+exec mpv.exe "${MPV_ARGS[@]}"
