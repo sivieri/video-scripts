@@ -125,4 +125,4 @@ fi
 MPV_ARGS+=("${FILE_ARRAY[@]}")
 
 # Execute mpv
-exec mpv.exe "${MPV_ARGS[@]}"
+exec mpv "${MPV_ARGS[@]}"
