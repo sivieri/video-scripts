@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 """
-Split a markdown file into a folder structure:
+Split a markdown file into a folder structure.
+
+With --levels 2,3 (default):
 - Level 1 heading: ignored
 - Level 2 headings: become folders
 - Level 3 headings: become files within their parent level 2 folder
+
+With --levels 1,2:
+- Level 1 headings: become folders
+- Level 2 headings: become files within their parent level 1 folder
 """
 
-import os
+import argparse
 import re
 import sys
 from pathlib import Path
@@ -26,63 +32,57 @@ def sanitize_filename(name):
     return name
 
 
-def parse_markdown(md_file):
+def parse_markdown(md_file, folder_level, file_level):
     """Parse markdown file and return structured data."""
     with open(md_file, 'r', encoding='utf-8') as f:
         lines = f.readlines()
-    
+
+    folder_prefix = '#' * folder_level + ' '
+    file_prefix = '#' * file_level + ' '
+
     structure = []
-    current_level2 = None
-    current_level3 = None
+    current_folder = None
+    current_file = None
     current_content = []
-    
+
     for line in lines:
-        # Check for level 1 heading (ignore it)
-        if line.startswith('# '):
-            continue
-        
-        # Check for level 2 heading
-        elif line.startswith('## '):
-            # Save previous level 3 if exists
-            if current_level3 and current_level2:
+        if line.startswith(folder_prefix) and not line.startswith(folder_prefix + '#'):
+            # Save previous file section if exists
+            if current_file and current_folder:
                 structure.append({
-                    'level2': current_level2,
-                    'level3': current_level3,
+                    'folder': current_folder,
+                    'file': current_file,
                     'content': ''.join(current_content).strip()
                 })
-            
-            # Start new level 2
-            current_level2 = line[3:].strip()
-            current_level3 = None
+
+            current_folder = line[len(folder_prefix):].strip()
+            current_file = None
             current_content = []
-        
-        # Check for level 3 heading
-        elif line.startswith('### '):
-            # Save previous level 3 if exists
-            if current_level3 and current_level2:
+
+        elif line.startswith(file_prefix) and not line.startswith(file_prefix + '#'):
+            # Save previous file section if exists
+            if current_file and current_folder:
                 structure.append({
-                    'level2': current_level2,
-                    'level3': current_level3,
+                    'folder': current_folder,
+                    'file': current_file,
                     'content': ''.join(current_content).strip()
                 })
-            
-            # Start new level 3
-            current_level3 = line[4:].strip()
+
+            current_file = line[len(file_prefix):].strip()
             current_content = []
-        
-        # Regular content line
+
         else:
-            if current_level3 and current_level2:
+            if current_file and current_folder:
                 current_content.append(line)
-    
-    # Don't forget the last level 3
-    if current_level3 and current_level2:
+
+    # Don't forget the last section
+    if current_file and current_folder:
         structure.append({
-            'level2': current_level2,
-            'level3': current_level3,
+            'folder': current_folder,
+            'file': current_file,
             'content': ''.join(current_content).strip()
         })
-    
+
     return structure
 
 
@@ -96,13 +96,11 @@ def create_structure(structure, output_dir=None):
     output_dir.mkdir(parents=True, exist_ok=True)
     
     for item in structure:
-        # Create level 2 folder
-        level2_folder = sanitize_filename(item['level2'])
-        folder_path = output_dir / level2_folder
+        folder_name = sanitize_filename(item['folder'])
+        folder_path = output_dir / folder_name
         folder_path.mkdir(parents=True, exist_ok=True)
-        
-        # Create level 3 file
-        level3_filename = sanitize_filename(item['level3'])
+
+        level3_filename = sanitize_filename(item['file'])
         # Add .md extension if not present
         if not level3_filename.endswith('.md'):
             level3_filename += '.md'
@@ -117,28 +115,35 @@ def create_structure(structure, output_dir=None):
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: split_markdown.py <markdown_file> [output_directory]")
-        print("  markdown_file: Path to the markdown file to split")
-        print("  output_directory: Optional directory to create structure in (default: current directory)")
-        sys.exit(1)
-    
-    md_file = Path(sys.argv[1])
+    parser = argparse.ArgumentParser(
+        description='Split a markdown file into a folder/file structure based on heading levels.'
+    )
+    parser.add_argument('markdown_file', help='Path to the markdown file to split')
+    parser.add_argument('output_directory', nargs='?', default=None,
+                        help='Directory to create structure in (default: current directory)')
+    parser.add_argument('--level', type=int, choices=[1, 2], default=2,
+                        help='Heading level to use as folders; files use the next level (default: 2)')
+
+    args = parser.parse_args()
+
+    md_file = Path(args.markdown_file)
     if not md_file.exists():
         print(f"Error: File '{md_file}' not found.")
         sys.exit(1)
-    
-    output_dir = sys.argv[2] if len(sys.argv) > 2 else None
-    
+
+    folder_level = args.level
+    file_level = folder_level + 1
+
     print(f"Parsing markdown file: {md_file}")
-    structure = parse_markdown(md_file)
-    
-    print(f"\nFound {len(structure)} level 3 sections across {len(set(s['level2'] for s in structure))} level 2 sections")
+    print(f"Using level {folder_level} headings as folders, level {file_level} headings as files")
+    structure = parse_markdown(md_file, folder_level, file_level)
+
+    print(f"\nFound {len(structure)} file sections across {len(set(s['folder'] for s in structure))} folders")
     print(f"Creating folder structure...\n")
-    
-    create_structure(structure, output_dir)
-    
-    print(f"\nDone! Structure created in: {output_dir or Path.cwd()}")
+
+    create_structure(structure, args.output_directory)
+
+    print(f"\nDone! Structure created in: {args.output_directory or Path.cwd()}")
 
 
 if __name__ == '__main__':
