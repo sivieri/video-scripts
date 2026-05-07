@@ -16,10 +16,17 @@ OUTPUT_FILE="$1"
 TEMP_LIST="concat_list_$$.txt"  # Use process ID to avoid conflicts
 
 # Common video file extensions
-VIDEO_EXTENSIONS="mp4|mkv|avi|mov|webm|flv|wmv|m4v|mpg|mpeg|3gp|ts|m2ts"
+VIDEO_EXTENSIONS=("mp4" "mkv" "avi" "mov" "webm" "flv" "wmv" "m4v" "mpg" "mpeg" "3gp" "ts" "m2ts")
+
+# Build find conditions
+find_conditions=()
+for ext in "${VIDEO_EXTENSIONS[@]}"; do
+    [ ${#find_conditions[@]} -gt 0 ] && find_conditions+=(-o)
+    find_conditions+=(-iname "*.${ext}")
+done
 
 # Find all video files in current directory, sorted lexicographically
-VIDEO_FILES=$(find . -maxdepth 1 -type f -regextype posix-extended -iregex ".*\.($VIDEO_EXTENSIONS)$" | sort)
+VIDEO_FILES=$(find . -maxdepth 1 -type f \( "${find_conditions[@]}" \) | sort)
 
 # Check if any video files were found
 if [ -z "$VIDEO_FILES" ]; then
@@ -41,10 +48,9 @@ done <<< "$VIDEO_FILES"
 
 # Execute ffmpeg concatenation
 echo "Concatenating videos..."
-ffmpeg -f concat -safe 0 -i "$TEMP_LIST" -c copy "$OUTPUT_FILE"
 
 # Check if ffmpeg succeeded
-if [ $? -eq 0 ]; then
+if ffmpeg -f concat -safe 0 -i "$TEMP_LIST" -c copy "$OUTPUT_FILE"; then
     echo "Successfully created: $OUTPUT_FILE"
 else
     echo "Error: ffmpeg failed"
