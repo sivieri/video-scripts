@@ -103,7 +103,7 @@ def process_song(session: requests.Session, song: Song, base_dir: Path, dry_run:
 
         if prev and prev != filename:
             old = folder / prev
-            print(f"{prefix}[UPDATED] {display} :: {tf.label} :: {prev} -> {filename}")
+            print(f"{prefix}[UPDATED] {display} :: {tf.label}")
             if dry_run:
                 continue
             try:
@@ -117,7 +117,7 @@ def process_song(session: requests.Session, song: Song, base_dir: Path, dry_run:
                 except OSError as e:
                     print(f"  [WARN] could not remove old file {old}: {e}")
         else:
-            print(f"{prefix}[NEW]     {display} :: {tf.label} :: {filename}")
+            print(f"{prefix}[NEW]     {display} :: {tf.label}")
             if dry_run:
                 continue
             try:
