@@ -26,8 +26,8 @@ def folder_for(song: Song, base: Path) -> Path:
 
 
 def url_basename(url: str) -> str:
-    path = urlparse(url).path
-    return unquote(os.path.basename(path))
+    path = unquote(urlparse(url).path)
+    return os.path.basename(path)
 
 
 def _ext(name: str) -> str:
