@@ -9,6 +9,7 @@ import requests
 
 from parser import TUTORIAL_URL, parse_tutorial_page
 from downloader import process_song
+from config import CONFIG_PATH, resolve_cookie
 
 
 def build_session(cookie: str) -> requests.Session:
@@ -23,16 +24,21 @@ def build_session(cookie: str) -> requests.Session:
 def main() -> int:
     ap = argparse.ArgumentParser(description="Mirror Rockin'1000 event tutorials.")
     ap.add_argument("--event-id", "-e", required=True, help="numeric event id (idEvento)")
-    ap.add_argument("--cookie", required=True, help="full Cookie header value for an authenticated session")
+    ap.add_argument("--cookie", help=f"full Cookie header value (saved to {CONFIG_PATH} and reused if omitted)")
     ap.add_argument("--output", "-o", default=".", help="output folder (default: current dir)")
     ap.add_argument("--dry-run", action="store_true", help="show what would be downloaded/updated without writing files")
     args = ap.parse_args()
+
+    cookie = resolve_cookie(args.cookie)
+    if not cookie:
+        print(f"[ERROR] no cookie provided and none saved at {CONFIG_PATH}.", file=sys.stderr)
+        return 1
 
     out = Path(args.output).expanduser().resolve()
     if not args.dry_run:
         out.mkdir(parents=True, exist_ok=True)
 
-    session = build_session(args.cookie)
+    session = build_session(cookie)
     url = TUTORIAL_URL.format(event_id=args.event_id)
 
     print(f"Fetching tutorial index: {url}")

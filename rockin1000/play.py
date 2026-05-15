@@ -11,12 +11,13 @@ import requests
 
 from parser import TUTORIAL_URL, parse_tutorial_page
 from downloader import url_basename
+from config import CONFIG_PATH, resolve_cookie
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Shuffle-play Rockin'1000 mp3 tutorials with mpv.")
     ap.add_argument("--event-id", "-e", required=True, help="numeric event id (idEvento)")
-    ap.add_argument("--cookie", required=True, help="full Cookie header value for an authenticated session")
+    ap.add_argument("--cookie", help=f"full Cookie header value (saved to {CONFIG_PATH} and reused if omitted)")
     ap.add_argument("--seed", type=int, default=None, help="optional shuffle seed for reproducible order")
     ap.add_argument("--dry-run", action="store_true", help="print the shuffled playlist without launching mpv")
     args = ap.parse_args()
@@ -25,9 +26,14 @@ def main() -> int:
         print("[ERROR] mpv not found in PATH.", file=sys.stderr)
         return 1
 
+    cookie = resolve_cookie(args.cookie)
+    if not cookie:
+        print(f"[ERROR] no cookie provided and none saved at {CONFIG_PATH}.", file=sys.stderr)
+        return 1
+
     session = requests.Session()
     session.headers.update({
-        "Cookie": args.cookie,
+        "Cookie": cookie,
         "User-Agent": "Mozilla/5.0 (rockin1000-scraper)",
     })
 
@@ -69,7 +75,7 @@ def main() -> int:
     cmd = [
         "mpv",
         "--no-video",
-        f"--http-header-fields=Cookie: {args.cookie}",
+        f"--http-header-fields=Cookie: {cookie}",
         *urls,
     ]
     try:
