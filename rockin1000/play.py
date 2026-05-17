@@ -19,6 +19,7 @@ def main() -> int:
     ap.add_argument("--event-id", "-e", required=True, help="numeric event id (idEvento)")
     ap.add_argument("--cookie", help=f"full Cookie header value (saved to {CONFIG_PATH} and reused if omitted)")
     ap.add_argument("--seed", type=int, default=None, help="optional shuffle seed for reproducible order")
+    ap.add_argument("--silence", type=float, default=5.0, help="seconds of silence between tracks (default: 5)")
     ap.add_argument("--dry-run", action="store_true", help="print the shuffled playlist without launching mpv")
     args = ap.parse_args()
 
@@ -76,8 +77,10 @@ def main() -> int:
         "mpv",
         "--no-video",
         f"--http-header-fields=Cookie: {cookie}",
-        *urls,
     ]
+    if args.silence > 0:
+        cmd.append(f"--af=lavfi=[apad=pad_dur={args.silence}]")
+    cmd.extend(urls)
     try:
         return subprocess.call(cmd)
     except KeyboardInterrupt:
