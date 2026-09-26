@@ -7,7 +7,8 @@
 set -e  # Exit on error
 
 # Default values
-DIRECTORY="."
+DIRECTORIES=()
+INPUT_FILES=()
 EXTENSION=""
 SPEED=1.0
 SHUFFLE=true
@@ -18,7 +19,8 @@ usage() {
 Usage: $0 [OPTIONS]
 
 Options:
-    -d, --dir DIR      Specify directory (default: current directory, recursive)
+    -d, --dir DIR...   Specify one or more directories (default: current directory, recursive)
+    -f, --files FILE...  Specify one or more files to play
     -e, --ext EXT      Specify file extension (e.g., mkv, mp4) without the dot
     -s, --slow         Set playback speed to 85% (default: 100%)
     -n, --no-shuffle   Disable shuffle (default: enabled)
@@ -27,6 +29,9 @@ Options:
 Examples:
     $0                                    # Play all videos in current dir (recursive), shuffled, 100% speed
     $0 -d /path/to/videos                 # Play all videos in specified directory (recursive)
+    $0 -d dir1 dir2 dir3                  # Play all videos in several directories (recursive)
+    $0 -f a.mp4 b.mkv                     # Play only the given files
+    $0 -d dir1 -f extra.mp4               # Play videos in dir1 plus extra.mp4
     $0 -e mkv                             # Play only .mkv files in current directory (recursive)
     $0 -s                                 # Play at 85% speed
     $0 -d /path/to/videos -e mp4 -n  # Play .mp4 files in directory (recursive), no shuffle
@@ -37,9 +42,21 @@ EOF
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        -d|--dir)
-            DIRECTORY="$2"
-            shift 2
+        -d|--dir|-f|--files)
+            OPT="$1"
+            shift
+            if [[ $# -eq 0 || "$1" == -* ]]; then
+                echo "Error: $OPT requires at least one argument"
+                exit 1
+            fi
+            while [[ $# -gt 0 && "$1" != -* ]]; do
+                if [[ "$OPT" == "-d" || "$OPT" == "--dir" ]]; then
+                    DIRECTORIES+=("$1")
+                else
+                    INPUT_FILES+=("$1")
+                fi
+                shift
+            done
             ;;
         -e|--ext)
             EXTENSION="$2"
@@ -64,32 +81,47 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Validate directory
-if [ ! -d "$DIRECTORY" ]; then
-    echo "Error: Directory '$DIRECTORY' does not exist"
-    exit 1
+if [ ${#DIRECTORIES[@]} -eq 0 ] && [ ${#INPUT_FILES[@]} -eq 0 ]; then
+    DIRECTORIES=(".")
 fi
+
+# Validate directories
+for DIRECTORY in "${DIRECTORIES[@]}"; do
+    if [ ! -d "$DIRECTORY" ]; then
+        echo "Error: Directory '$DIRECTORY' does not exist"
+        exit 1
+    fi
+done
+
+for FILE in "${INPUT_FILES[@]}"; do
+    if [ ! -f "$FILE" ]; then
+        echo "Error: File '$FILE' does not exist"
+        exit 1
+    fi
+done
 
 # Build the file list
 if [ -n "$EXTENSION" ]; then
     # Remove leading dot if present
     EXTENSION="${EXTENSION#.}"
-    # Find files with specific extension (recursive)
-    FILES=$(find "$DIRECTORY" -type f -iname "*.$EXTENSION" 2>/dev/null | sort)
+    EXTENSION_PATTERN="$EXTENSION"
 else
-    # Common video extensions (recursive)
-    FILES=$(find "$DIRECTORY" -type f \( \
-        -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.mov" \
-        -o -iname "*.webm" -o -iname "*.flv" -o -iname "*.wmv" -o -iname "*.m4v" \
-        -o -iname "*.mpg" -o -iname "*.mpeg" -o -iname "*.3gp" -o -iname "*.ts" \
-        -o -iname "*.m2ts" \
-    \) 2>/dev/null | sort)
+    EXTENSION_PATTERN="mp4|mkv|avi|mov|webm|flv|wmv|m4v|mpg|mpeg|3gp|ts|m2ts"
 fi
+
+FILES=$(
+    {
+        [ ${#DIRECTORIES[@]} -gt 0 ] && find "${DIRECTORIES[@]}" -type f 2>/dev/null | sort
+        printf '%s\n' "${INPUT_FILES[@]}"
+    } | grep -iE "\.($EXTENSION_PATTERN)\$" | awk '!seen[$0]++'
+)
 
 # Check if any files were found
 if [ -z "$FILES" ]; then
     echo "Error: No video files found"
-    [ -n "$EXTENSION" ] && echo "  Directory: $DIRECTORY" && echo "  Extension: .$EXTENSION" || echo "  Directory: $DIRECTORY"
+    [ ${#DIRECTORIES[@]} -gt 0 ] && echo "  Directories: ${DIRECTORIES[*]}"
+    [ ${#INPUT_FILES[@]} -gt 0 ] && echo "  Files given: ${#INPUT_FILES[@]}"
+    [ -n "$EXTENSION" ] && echo "  Extension: .$EXTENSION"
     exit 1
 fi
 
@@ -104,7 +136,8 @@ done <<< "$FILES"
 
 # Display info
 echo "Playing videos with mpv..."
-echo "Directory: $DIRECTORY"
+[ ${#DIRECTORIES[@]} -gt 0 ] && echo "Directories: ${DIRECTORIES[*]}"
+[ ${#INPUT_FILES[@]} -gt 0 ] && echo "Files given: ${#INPUT_FILES[@]}"
 [ -n "$EXTENSION" ] && echo "Extension: .$EXTENSION" || echo "Extension: all video formats"
 echo "Files found: $FILE_COUNT"
 echo "Speed: $(awk "BEGIN {print $SPEED * 100}")%"
